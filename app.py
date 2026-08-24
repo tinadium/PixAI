@@ -12,6 +12,9 @@ MODEL_NAME = "gemini-2.5-flash"
 CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
 IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
+# Mot de passe global simple pour protéger l'accès (laisse vide "" si tu veux accès libre)
+MOT_DE_PASSE_ACCES = "1234"
+
 PROFILS_IA = {
     "💬Nova2.5-flash": {
         "description": "Conversation naturelle, polyvalente et amicale.",
@@ -126,13 +129,27 @@ CUSTOM_CSS = """
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-# --- VÉRIFICATION /GESTION DE L'AUTHENTIFICATION GOOGLE ---
-if not st.user or not getattr(st.user, "email", None):
+# --- FORMULAIRE DE CONNEXION SIMPLIFIÉ ---
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+
+if not st.session_state.user_email:
     st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Connectez-vous avec votre compte Google pour accéder à l\'assistant et recevoir vos crédits quotidiens.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Entrez un identifiant ou votre email pour accéder à l\'assistant et vos crédits quotidiens.</div>', unsafe_allow_html=True)
     
-    if st.button("🔐 Se connecter avec Google", use_container_width=True):
-        st.login("google")
+    with st.form("login_form"):
+        email_input = st.text_input("Votre Email / Pseudo", placeholder="ex: alex@gmail.com")
+        pwd_input = st.text_input("Mot de passe (optionnel)", type="password") if MOT_DE_PASSE_ACCES else None
+        submit = st.form_submit_button("🚀 Entrer", use_container_width=True)
+        
+        if submit:
+            if not email_input.strip():
+                st.error("Veuillez saisir un identifiant.")
+            elif MOT_DE_PASSE_ACCES and pwd_input != MOT_DE_PASSE_ACCES:
+                st.error("Mot de passe incorrect.")
+            else:
+                st.session_state.user_email = email_input.strip()
+                st.rerun()
     st.stop()
 
 # --- GESTION DU RECHARGEMENT QUOTIDIEN DES CRÉDITS ---
@@ -162,7 +179,7 @@ with st.sidebar:
     if os.path.exists("logo.jpg"):
         st.image("logo.jpg", width=140)
     
-    st.markdown(f"**Connecté en tant que :**\n`{st.user.email}`")
+    st.markdown(f"**Connecté en tant que :**\n`{st.session_state.user_email}`")
     
     st.markdown("---")
     st.markdown("### 🎯 Modèle IA")
@@ -181,7 +198,8 @@ with st.sidebar:
         st.rerun()
 
     if st.button("🚪 Se déconnecter", use_container_width=True):
-        st.logout()
+        st.session_state.user_email = None
+        st.rerun()
 
 # --- INITIALISATION CHAT GEMINI ---
 config_profil = PROFILS_IA[profil_choisi]
