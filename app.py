@@ -8,12 +8,12 @@ from google.genai import types
 # ⚙️ CONFIGURATION DU SCRIPT ET DES PROFILS D'IA
 # ==============================================================================
 API_KEY = "TA_CLE_API_ICI"  # Colle ta clé Gemini entre les guillemets
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3.6-flash"
 CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
 IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
 # Mot de passe global (laisse vide "" si tu ne veux pas de mot de passe)
-MOT_DE_PASSE_ACCES = "1234"
+MOT_DE_PASSE_ACCES = ""
 
 PROFILS_IA = {
     "💬Nova2.5-flash": {
@@ -252,7 +252,7 @@ if prompt := st.chat_input("Écris ton message ici..."):
     if st.session_state.credits <= 0:
         st.error("⚠️ Vous avez épuisé vos crédits ! Revenez demain ou rechargez votre compte.")
     else:
-        # 1. Affichage du message utilisateur
+        # 1. Enregistrement et affichage immédiat du message utilisateur
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
@@ -263,8 +263,22 @@ if prompt := st.chat_input("Écris ton message ici..."):
                 try:
                     response = st.session_state.chat.send_message(prompt)
                     reponse_texte = response.text
+                    
+                    # Affichage direct de la réponse
                     st.markdown(reponse_texte)
+                    
+                    # Enregistrement dans l'historique
                     st.session_state.messages.append({"role": "assistant", "content": reponse_texte})
+                    
+                    # Décompte des crédits
+                    total_caracteres = len(prompt) + len(reponse_texte)
+                    credits_consommes = max(1, total_caracteres // 300)
+                    st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
+                    
+                    st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s)", icon="🪙")
+                    
+                except Exception as e:
+                    st.error(f"Erreur de communication avec l'IA : {e}")
                     
                     # ==========================================================
                     # 🧮 CALCUL DU COÛT SELON LA LONGUEUR (PROMPT + RÉPONSE)
