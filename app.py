@@ -1,4 +1,5 @@
 import os
+import datetime
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -8,8 +9,9 @@ from google.genai import types
 # ==============================================================================
 API_KEY = "TA_CLE_API_ICI"  # Colle ta clé Gemini entre les guillemets
 MODEL_NAME = "gemini-2.5-flash"
+CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
+IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
-# Dictionnaire des profils d'IA avec leurs consignes et paramètres dédiés :
 PROFILS_IA = {
     "💬Nova2.5-flash": {
         "description": "Conversation naturelle, polyvalente et amicale.",
@@ -22,7 +24,7 @@ PROFILS_IA = {
     },
     "💻Nova1.6-codex": {
         "description": "Optimisé pour la programmation, la revue de code et le debug.",
-        "temperature": 0.2, # Température basse pour plus de précision technique
+        "temperature": 0.2,
         "system_instruction": """
         Tu es un "Nova1.6-codex" un ingénieur logiciel senior et expert en programmation multi-langages.
         Règles :
@@ -98,11 +100,6 @@ CUSTOM_CSS = """
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
-    .stChatMessage:hover {
-        border-color: #30363d !important;
-        box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.25);
-    }
-
     [data-testid="stChatMessage"]:nth-child(even) {
         background-color: #1c2128 !important;
         border-left: 3px solid #a855f7 !important;
@@ -118,11 +115,6 @@ CUSTOM_CSS = """
         background-color: #161b22 !important;
     }
 
-    .stChatInputContainer:focus-within {
-        border-color: #a855f7 !important;
-        box-shadow: 0 0 0 1px #a855f7 !important;
-    }
-
     section[data-testid="stSidebar"] {
         background-color: #161b22;
         border-right: 1px solid #21262d;
@@ -134,7 +126,27 @@ CUSTOM_CSS = """
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-# Initialisation du client Google GenAI
+# --- VÉRIFICATION /GESTION DE L'AUTHENTIFICATION GOOGLE ---
+if not st.experimental_user.is_logged_in:
+    st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Connectez-vous avec votre compte Google pour accéder à l\'assistant et recevoir vos crédits quotidiens.</div>', unsafe_allow_html=True)
+    
+    if st.button("🔐 Se connecter avec Google", use_container_width=True):
+        st.login("google")
+    st.stop()
+
+# --- GESTION DU RECHARGEMENT QUOTIDIEN DES CRÉDITS ---
+today_str = datetime.date.today().isoformat()
+
+if "last_login_date" not in st.session_state or st.session_state.last_login_date != today_str:
+    st.session_state.last_login_date = today_str
+    st.session_state.credits = CREDITS_QUOTIDIENS
+    st.toast(f"🎁 Vos {CREDITS_QUOTIDIENS} crédits quotidiens ont été ajoutés !", icon="🪙")
+
+if "credits" not in st.session_state:
+    st.session_state.credits = CREDITS_QUOTIDIENS
+
+# --- INITIALISATION CLIENT GEMINI ---
 @st.cache_resource
 def get_client():
     key = API_KEY if API_KEY != "TA_CLE_API_ICI" else os.environ.get("GEMINI_API_KEY")
@@ -145,19 +157,21 @@ def get_client():
 
 client = get_client()
 
-# --- SIDEBAR (Choix du Profil & Actions) ---
+# --- SIDEBAR (Profil, Profil IA & Déconnexion) ---
 with st.sidebar:
-    st.image("logo.jpg", width=140)
-    st.markdown("### 🎯 Model IA")
+    if os.path.exists("logo.jpg"):
+        st.image("logo.jpg", width=140)
     
-    # Sélecteur de profil
+    st.markdown(f"**Connecté en tant que :**\n`{st.experimental_user.email}`")
+    
+    st.markdown("---")
+    st.markdown("### 🎯 Modèle IA")
+    
     profil_choisi = st.selectbox(
         "Choisis le modèle:",
         options=list(PROFILS_IA.keys()),
         index=0
     )
-    
-    # Infos sur le profil sélectionné
     st.caption(f"ℹ️ {PROFILS_IA[profil_choisi]['description']}")
     
     st.markdown("---")
@@ -166,7 +180,10 @@ with st.sidebar:
         st.session_state.chat = None
         st.rerun()
 
-# Initialisation ou réinitialisation du Chat selon le profil
+    if st.button("🚪 Se déconnecter", use_container_width=True):
+        st.logout()
+
+# --- INITIALISATION CHAT GEMINI ---
 config_profil = PROFILS_IA[profil_choisi]
 
 if "current_profil" not in st.session_state or st.session_state.current_profil != profil_choisi:
@@ -180,14 +197,28 @@ if "current_profil" not in st.session_state or st.session_state.current_profil !
         )
     )
 
-# --- ENTÊTE PRINCIPAL ---
-st.markdown(f"""
-    <div class="status-badge">
-        <span class="status-dot"></span> Mode actif : {profil_choisi}
-    </div>
-    <div class="main-title">Assistant IA Personnel</div>
-    <div class="sub-title">Propulsé par Google Gemini • Pose tes questions ci-dessous</div>
-""", unsafe_allow_html=True)
+# --- ENTÊTE PRINCIPAL AVEC AFFICHAGE DES CRÉDITS ET IMAGE ---
+col_head, col_credit = st.columns([3, 1])
+
+with col_head:
+    st.markdown(f"""
+        <div class="status-badge">
+            <span class="status-dot"></span> Mode actif : {profil_choisi}
+        </div>
+    """, unsafe_allow_html=True)
+
+with col_credit:
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        if os.path.exists(IMAGE_CREDIT_PATH):
+            st.image(IMAGE_CREDIT_PATH, width=32)
+        else:
+            st.write("🪙")
+    with c2:
+        st.markdown(f"### **{st.session_state.credits}**")
+
+st.markdown('<div class="main-title">Assistant IA Personnel</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Propulsé par Google Gemini • Pose tes questions ci-dessous</div>', unsafe_allow_html=True)
 
 # --- AFFICHAGE DU CHAT ---
 if "messages" not in st.session_state:
@@ -200,17 +231,40 @@ for message in st.session_state.messages:
 
 # --- ENVOI DE MESSAGE ---
 if prompt := st.chat_input("Écris ton message ici..."):
-    # Message Utilisateur
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+    if st.session_state.credits <= 0:
+        st.error("⚠️ Vous avez épuisé vos crédits ! Revenez demain ou rechargez votre compte.")
+    else:
+        # 1. Affichage du message utilisateur
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
 
-    # Réponse de l'IA
-    with st.chat_message("assistant", avatar="🤖"):
-        with st.spinner(f"L'IA ({profil_choisi}) rédige une réponse..."):
-            try:
-                response = st.session_state.chat.send_message(prompt)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-            except Exception as e:
-                st.error(f"Une erreur s'est produite : {e}")
+        # 2. Génération de la réponse
+        with st.chat_message("assistant", avatar="🤖"):
+            with st.spinner(f"L'IA ({profil_choisi}) rédige une réponse..."):
+                try:
+                    response = st.session_state.chat.send_message(prompt)
+                    reponse_texte = response.text
+                    st.markdown(reponse_texte)
+                    st.session_state.messages.append({"role": "assistant", "content": reponse_texte})
+                    
+                    # ==========================================================
+                    # 🧮 CALCUL DU COÛT SELON LA LONGUEUR (PROMPT + RÉPONSE)
+                    # ==========================================================
+                    total_caracteres = len(prompt) + len(reponse_texte)
+                    
+                    # Règle : 1 crédit par tranche de 500 caractères (minimum 1)
+                    credits_consommes = max(1, total_caracteres // 300)
+                    
+                    # Déduction des crédits
+                    st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
+                    
+                    # Notification discrète à l'utilisateur
+                    st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s) ({total_caracteres} caractères)", icon="🪙")
+                    
+                except Exception as e:
+                    st.error(f"Une erreur s'est produite : {e}")
+        
+        # 3. Rafraîchissement pour mettre à jour l'affichage en haut à droite
+        st.rerun()
+        st.rerun()
