@@ -2,18 +2,15 @@ import os
 import sqlite3
 import secrets
 import streamlit as st
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import APIKeyHeader
+from pydantic import BaseModel
 from google import genai
-from google.genai import types
+import threading
+import uvicorn
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(
-    page_title="NovAI Studio",
-    page_icon="🤖",
-    layout="centered"
-)
-
-# --- CONFIGURATION DE LA BASE DE DONNÉES DES CLÉS API ---
-DB_FILE = "novai_keys.db"
+# --- CONFIGURATION DE LA BASE DE DONNÉES ---
+DB_FILE = "novai_users.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -30,126 +27,113 @@ def init_db():
 
 init_db()
 
-# --- CONFIGURATION DE L'API GEMINI ---
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "TA_CLE_GOOGLE_GEMINI")
+# --- PARTIE API FASTAPI ---
+api_app = FastAPI(title="NovAI Unified API")
 
-try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-except Exception:
-    client = None
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# --- CONFIGURATION DES MODÈLES ---
-PROFILS_IA = {
-    "nova-3.6-flash": {
-        "gemini_model": "gemini-3.6-flash",
-        "temperature": 0.8,
-        "description": "Assistant amical et polyvalent.",
-        "system_instruction": "Tu es Nova3.6-flash, un assistant amical, cultivé et très polyvalent."
-    },
-    "nova-1.6-codex": {
-        "gemini_model": "gemini-3.6-flash",
-        "temperature": 0.2,
-        "description": "Expert en code et programmation.",
-        "system_instruction": "Tu es Nova1.6-codex, un ingénieur logiciel senior expert en programmation."
-    }
-}
+api_key_header = APIKeyHeader(name="Authorization", auto_error=True)
 
-# --- INITIALISATION DE LA SESSION WEB ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    token = api_key.replace("Bearer ", "").strip()
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, api_credits FROM api_users WHERE api_key = ?", (token,))
+    user = cursor.fetchone()
+    conn.close()
 
-if "credits" not in st.session_state:
-    st.session_state.credits = 140
-
-# --- BARRE LATÉRALE (ORGANISÉE PAR ONGLETS POUR ÉVITER LE SCROLL) ---
-with st.sidebar:
-    st.title("⚙️ NovAI Studio")
+    if not user:
+        raise HTTPException(status_code=401, detail="Clé API invalide.")
     
-    # Utilisation d'onglets dans la sidebar pour que tout soit visible directement
-    tab_chat, tab_api = st.tabs(["💬 Chat", "🔑 API"])
+    username, api_credits = user
+    if api_credits <= 0:
+        raise HTTPException(status_code=402, detail="Crédits API épuisés.")
     
-    with tab_chat:
-        profil_choisi = st.selectbox("Modèle", list(PROFILS_IA.keys()), label_visibility="collapsed")
-        st.caption(PROFILS_IA[profil_choisi]["description"])
+    return {"key": token, "username": username, "api_credits": api_credits}
+
+class ChatRequest(BaseModel):
+    model: str = "gemini-2.5-flash"
+    prompt: str
+
+@api_app.post("/v1/chat/completions")
+def api_chat(req: ChatRequest, user: dict = Depends(verify_api_key)):
+    if not client:
+        raise HTTPException(status_code=500, detail="Clé API Google Gemini manquante sur le serveur.")
+    try:
+        response = client.models.generate_content(
+            model=req.model,
+            contents=req.prompt
+        )
         
-        st.markdown("---")
-        st.metric("🪙 Crédits Web", f"{st.session_state.credits}/140")
+        nouveaux_credits = user["api_credits"] - 1
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE api_users SET api_credits = ? WHERE api_key = ?", (nouveaux_credits, user["key"]))
+        conn.commit()
+        conn.close()
         
-        if st.button("Effacer le chat", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
+        return {
+            "response": response.text,
+            "api_credits_remaining": nouveaux_credits
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    with tab_api:
-        st.write("**Créer une clé API**")
-        pseudo_api = st.text_input("Pseudo", placeholder="ex: devalex", label_visibility="collapsed")
-        
-        if st.button("Générer la clé", use_container_width=True):
-            if not pseudo_api.strip():
-                st.error("Mets un pseudo.")
-            else:
-                new_key = f"novai_sk_{secrets.token_hex(16)}"
-                credits_initiaux = 100
-                
-                try:
-                    conn = sqlite3.connect(DB_FILE)
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "INSERT INTO api_users (api_key, username, api_credits) VALUES (?, ?, ?)",
-                        (new_key, pseudo_api.strip(), credits_initiaux)
-                    )
-                    conn.commit()
-                    conn.close()
-                    
-                    st.success("Clé créée !")
-                    st.code(new_key, language="text")
-                except sqlite3.IntegrityError:
-                    st.error("Pseudo déjà pris.")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
+# --- LANCEMENT DE L'API EN ARRIÉR PLAN POUR STREAMLIT ---
+def run_fastapi():
+    uvicorn.run(api_app, host="0.0.0.0", port=8001, log_level="warning")
 
-info_modele = PROFILS_IA[profil_choisi]
+@st.cache_resource
+def start_background_api():
+    t = threading.Thread(target=run_fastapi, daemon=True)
+    t.start()
 
-# --- INTERFACE PRINCIPALE DE CHAT ---
-st.title("✨ NovAI Studio")
-st.write(f"Mode actif : **{profil_choisi}**")
+start_background_api()
 
-# Affichage de l'historique
-for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "🤖"
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
+# --- PARTIE INTERFACE STREAMLIT ---
+st.set_page_config(page_title="NovAI Studio", page_icon="💬")
 
-# --- GESTION DE L'ENVOI DE MESSAGE ---
-if prompt := st.chat_input("Écris ton message ici..."):
-    if st.session_state.credits <= 0:
-        st.error("⚠️ Crédits web épuisés !")
-    else:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
+st.sidebar.title("Menu NovAI")
+menu = st.sidebar.radio("Navigation", ["💬 Chat", "🔑 API"])
 
-        with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner("Réflexion..."):
-                try:
-                    if not client:
-                        raise Exception("Client Gemini non initialisé.")
-                    
-                    response = client.models.generate_content(
-                        model=info_modele["gemini_model"],
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=info_modele["system_instruction"],
-                            temperature=info_modele["temperature"]
-                        )
-                    )
-                    reponse_texte = response.text
-                    st.markdown(reponse_texte)
-                    
-                    st.session_state.messages.append({"role": "assistant", "content": reponse_texte})
-                    
-                    credits_consommes = max(1, (len(prompt) + len(reponse_texte)) // 300)
-                    st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
-                    st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s)", icon="🪙")
-                    
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
+if menu == "💬 Chat":
+    st.title("💬 Chat avec NovAI")
+    st.write("Bienvenue sur ton application unifiée !")
+    
+    prompt = st.text_input("Écris ton message :")
+    if st.button("Envoyer") and prompt:
+        if client:
+            try:
+                res = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+                st.write(res.text)
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+        else:
+            st.error("La variable GEMINI_API_KEY n'est pas configurée sur Render.")
+
+elif menu == "🔑 API":
+    st.title("🔑 Gestion de votre clé API")
+    st.write("Générez votre clé pour l'utiliser dans vos scripts externes sur le point de terminaison `/v1/chat/completions`.")
+    
+    username = st.text_input("Entrez votre pseudo :")
+    if st.button("Générer ma clé API"):
+        if username.strip():
+            api_key = f"novai_sk_{secrets.token_hex(16)}"
+            initial_credits = 100
+            try:
+                conn = sqlite3.connect(DB_FILE)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO api_users (api_key, username, api_credits) VALUES (?, ?, ?)",
+                    (api_key, username, initial_credits)
+                )
+                conn.commit()
+                conn.close()
+                st.success("Clé générée avec succès !")
+                st.code(api_key, language="text")
+                st.info(f"Crédits initiaux : {initial_credits}")
+            except sqlite3.IntegrityError:
+                st.error("Ce pseudo est déjà utilisé. Choisissez-en un autre.")
+        else:
+            st.warning("Veuillez entrer un pseudo valide.")
