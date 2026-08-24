@@ -148,7 +148,7 @@ client = get_client()
 
 # --- SIDEBAR (Choix du Profil & Actions) ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg", width=140)
+    st.image("logo.jpg", width=140)
     st.markdown("### 🎯 Model IA")
     
     # Sélecteur de profil
