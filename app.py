@@ -38,8 +38,8 @@ PROFILS_IA = {
 
 # Page Configuration Streamlit
 st.set_page_config(
-    page_title="PixAI-App",
-    page_icon="✨",
+    page_title="NovAI",
+    page_icon="👾",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -149,7 +149,7 @@ client = get_client()
 # --- SIDEBAR (Choix du Profil & Actions) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg", width=140)
-    st.markdown("### 🎯 ModeelIA")
+    st.markdown("### 🎯 Model IA")
     
     # Sélecteur de profil
     profil_choisi = st.selectbox(
