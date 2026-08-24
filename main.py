@@ -43,13 +43,13 @@ PROFILS_IA = {
     "nova-3.6-flash": {
         "gemini_model": "gemini-3.6-flash",
         "temperature": 0.8,
-        "description": "Assistant amical, rapide et polyvalent pour tous les jours.",
+        "description": "Assistant amical et polyvalent.",
         "system_instruction": "Tu es Nova3.6-flash, un assistant amical, cultivé et très polyvalent."
     },
     "nova-1.6-codex": {
         "gemini_model": "gemini-3.6-flash",
         "temperature": 0.2,
-        "description": "Ingénieur logiciel senior expert en code et programmation.",
+        "description": "Expert en code et programmation.",
         "system_instruction": "Tu es Nova1.6-codex, un ingénieur logiciel senior expert en programmation."
     }
 }
@@ -59,34 +59,33 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "credits" not in st.session_state:
-    st.session_state.credits = 140  # Crédits pour l'interface web
+    st.session_state.credits = 140
 
-# --- BARRE LATÉRALE (SIDEBAR) ---
+# --- BARRE LATÉRALE (ORGANISÉE PAR ONGLETS POUR ÉVITER LE SCROLL) ---
 with st.sidebar:
-    st.title("⚙️ Paramètres NovAI")
+    st.title("⚙️ NovAI Studio")
     
-    # Choix du modèle pour le chat web
-    profil_choisi = st.selectbox("Choisir le modèle", list(PROFILS_IA.keys()))
-    info_modele = PROFILS_IA[profil_choisi]
-    st.caption(info_modele["description"])
+    # Utilisation d'onglets dans la sidebar pour que tout soit visible directement
+    tab_chat, tab_api = st.tabs(["💬 Chat", "🔑 API"])
     
-    st.markdown("---")
-    st.metric("🪙 Vos crédits Web", f"{st.session_state.credits} / 140")
-    
-    if st.button("Réinitialiser la conversation", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+    with tab_chat:
+        profil_choisi = st.selectbox("Modèle", list(PROFILS_IA.keys()), label_visibility="collapsed")
+        st.caption(PROFILS_IA[profil_choisi]["description"])
+        
+        st.markdown("---")
+        st.metric("🪙 Crédits Web", f"{st.session_state.credits}/140")
+        
+        if st.button("Effacer le chat", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
 
-    # --- SECTION : CRÉATION DE CLÉ API DIRECTE ---
-    st.markdown("---")
-    st.markdown("### 🔑 Espace Développeur API")
-    st.write("Génère ta propre clé API NovAI directement ici.")
-    
-    with st.expander("Créer une clé API"):
-        pseudo_api = st.text_input("Nom d'utilisateur", placeholder="ex: devalex", key="input_pseudo_api")
-        if st.button("Générer ma clé API", use_container_width=True):
+    with tab_api:
+        st.write("**Créer une clé API**")
+        pseudo_api = st.text_input("Pseudo", placeholder="ex: devalex", label_visibility="collapsed")
+        
+        if st.button("Générer la clé", use_container_width=True):
             if not pseudo_api.strip():
-                st.error("Entre un nom d'utilisateur valide.")
+                st.error("Mets un pseudo.")
             else:
                 new_key = f"novai_sk_{secrets.token_hex(16)}"
                 credits_initiaux = 100
@@ -101,19 +100,20 @@ with st.sidebar:
                     conn.commit()
                     conn.close()
                     
-                    st.success("Clé créée avec succès !")
+                    st.success("Clé créée !")
                     st.code(new_key, language="text")
-                    st.info(f"🎁 {credits_initiaux} crédits API associés !")
                 except sqlite3.IntegrityError:
-                    st.error("Ce nom d'utilisateur est déjà pris. Choisis-en un autre.")
+                    st.error("Pseudo déjà pris.")
                 except Exception as e:
-                    st.error(f"Erreur lors de la création : {e}")
+                    st.error(f"Erreur : {e}")
+
+info_modele = PROFILS_IA[profil_choisi]
 
 # --- INTERFACE PRINCIPALE DE CHAT ---
 st.title("✨ NovAI Studio")
 st.write(f"Mode actif : **{profil_choisi}**")
 
-# Affichage de l'historique des messages
+# Affichage de l'historique
 for message in st.session_state.messages:
     avatar = "👤" if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar=avatar):
@@ -122,19 +122,17 @@ for message in st.session_state.messages:
 # --- GESTION DE L'ENVOI DE MESSAGE ---
 if prompt := st.chat_input("Écris ton message ici..."):
     if st.session_state.credits <= 0:
-        st.error("⚠️ Vous avez épuisé vos crédits web ! Rechargez ou revenez plus tard.")
+        st.error("⚠️ Crédits web épuisés !")
     else:
-        # Enregistrement et affichage du message utilisateur
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
 
-        # Génération de la réponse via Gemini
         with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner(f"L'IA ({profil_choisi}) réfléchit..."):
+            with st.spinner("Réflexion..."):
                 try:
                     if not client:
-                        raise Exception("Client Gemini non initialisé. Vérifiez votre clé API Google.")
+                        raise Exception("Client Gemini non initialisé.")
                     
                     response = client.models.generate_content(
                         model=info_modele["gemini_model"],
@@ -145,19 +143,13 @@ if prompt := st.chat_input("Écris ton message ici..."):
                         )
                     )
                     reponse_texte = response.text
-                    
-                    # Affichage direct de la réponse
                     st.markdown(reponse_texte)
                     
-                    # Enregistrement dans l'historique
                     st.session_state.messages.append({"role": "assistant", "content": reponse_texte})
                     
-                    # Décompte des crédits web
-                    total_caracteres = len(prompt) + len(reponse_texte)
-                    credits_consommes = max(1, total_caracteres // 300)
+                    credits_consommes = max(1, (len(prompt) + len(reponse_texte)) // 300)
                     st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
-                    
-                    st.toast(f"📉 -{credits_consommes} crédit(s) web utilisé(s)", icon="🪙")
+                    st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s)", icon="🪙")
                     
                 except Exception as e:
-                    st.error(f"Erreur de communication avec l'IA : {e}")
+                    st.error(f"Erreur : {e}")
