@@ -231,7 +231,7 @@ with col_credit:
         st.markdown(f"<h2 style='text-align: right; margin: 0; padding-top: 5px;'><b>{st.session_state.credits}</b></h2>", unsafe_allow_html=True)
     with c_img:
         if os.path.exists(IMAGE_CREDIT_PATH):
-            st.image(IMAGE_CREDIT_PATH, width=45)
+            st.image(IMAGE_CREDIT_PATH, width=140)
         else:
             st.markdown("<h2 style='margin: 0;'>🪙</h2>", unsafe_allow_html=True)
 
