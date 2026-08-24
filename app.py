@@ -8,7 +8,7 @@ from google.genai import types
 # ⚙️ CONFIGURATION DU SCRIPT ET DES PROFILS D'IA
 # ==============================================================================
 API_KEY = "TA_CLE_API_ICI"  # Colle ta clé Gemini entre les guillemets
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3.6-flash"
 CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
 IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
