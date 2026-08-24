@@ -1,6 +1,7 @@
 import datetime
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 
@@ -58,22 +59,8 @@ if "user_email" not in st.session_state:
 if "messages" not in st.session_state:
   st.session_state.messages = []
 
-# Persistance des crédits via l'URL
-query_params = st.query_params
-if "credits" in query_params:
-  st.session_state.credits = int(query_params["credits"])
-elif "credits" not in st.session_state:
+if "credits" not in st.session_state:
   st.session_state.credits = CREDITS_QUOTIDIENS
-  st.query_params["credits"] = str(CREDITS_QUOTIDIENS)
-
-today_str = datetime.date.today().isoformat()
-if (
-    "last_login_date" not in st.session_state
-    or st.session_state.last_login_date != today_str
-):
-  st.session_state.last_login_date = today_str
-  st.session_state.credits = CREDITS_QUOTIDIENS
-  st.query_params["credits"] = str(CREDITS_QUOTIDIENS)
 
 # --- 2. ECRAN DE CONNEXION ---
 if not st.session_state.user_email:
@@ -93,6 +80,27 @@ if not st.session_state.user_email:
       st.session_state.user_email = email_input.strip()
       st.rerun()
   st.stop()
+
+# PERSISTANCE DU SOLDE DANS LE NAVIGATEUR (LOCALSTORAGE)
+query_credits = st.query_params.get("c", None)
+if query_credits is not None:
+  st.session_state.credits = int(query_credits)
+
+# JS pour sauvegarder les crédits dans le localStorage de l'utilisateur
+components.html(
+    f"""
+    <script>
+        const savedCredits = localStorage.getItem('novai_credits_{st.session_state.user_email}');
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (savedCredits !== null && !urlParams.has('c')) {{
+            window.location.search = '?c=' + savedCredits;
+        }}
+    </script>
+    """,
+    height=0,
+)
+
 
 # --- 3. CLIENT GEMINI ---
 @st.cache_resource
@@ -119,7 +127,7 @@ with st.sidebar:
       "Modèle IA:", options=list(PROFILS_IA.keys()), index=0
   )
 
-  if st.button("🗑️ Réinitialiser", use_container_width=True):
+  if st.button("🗑️ Réinitialiser la discussion", use_container_width=True):
     st.session_state.messages = []
     st.session_state.chat = None
     st.rerun()
@@ -190,10 +198,20 @@ if prompt := st.chat_input("Écris ton message ici..."):
               {"role": "assistant", "content": reponse_texte}
           )
 
-          # Décompte et sauvegarde dans l'URL
+          # Maintien du solde
           nouveau_solde = max(0, st.session_state.credits - 1)
           st.session_state.credits = nouveau_solde
-          st.query_params["credits"] = str(nouveau_solde)
+          st.query_params["c"] = str(nouveau_solde)
+
+          # Enregistrement dans la mémoire du navigateur
+          components.html(
+              f"""
+            <script>
+                localStorage.setItem('novai_credits_{st.session_state.user_email}', '{nouveau_solde}');
+            </script>
+            """,
+              height=0,
+          )
 
           st.rerun()
 
