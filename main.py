@@ -1,165 +1,142 @@
 import os
-import sqlite3
-import secrets
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import APIKeyHeader
-from pydantic import BaseModel
+import requests
+import streamlit as st
 from google import genai
 from google.genai import types
 
-app = FastAPI(
-    title="NovAI Provider API",
-    description="API indépendante pour distribuer l'accès aux modèles NovAI avec gestion de clés et de crédits dédiés."
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(
+    page_title="NovAI Studio",
+    page_icon="🤖",
+    layout="centered"
 )
 
-# ==============================================================================
-# 🗄️ BASE DE DONNÉES SQLITE POUR L'API
-# ==============================================================================
-DB_FILE = "novai_api_users.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS api_users (
-            api_key TEXT PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            api_credits INTEGER NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# ==============================================================================
-# ⚙️ CONFIGURATION GEMINI ET PROFILS IA
-# ==============================================================================
+# --- CONFIGURATION DE L'API CLÉ (Google Gemini pour l'interface web) ---
+# Tu peux récupérer ta clé depuis les secrets Streamlit ou une variable d'environnement
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "TA_CLE_GOOGLE_GEMINI")
-client = genai.Client(api_key=GEMINI_API_KEY)
 
+try:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+except Exception:
+    client = None
+
+# --- CONFIGURATION DES MODÈLES ---
 PROFILS_IA = {
     "nova-3.6-flash": {
         "gemini_model": "gemini-3.6-flash",
         "temperature": 0.8,
+        "description": "Assistant amical, rapide et polyvalent pour tous les jours.",
         "system_instruction": "Tu es Nova3.6-flash, un assistant amical, cultivé et très polyvalent."
     },
     "nova-1.6-codex": {
         "gemini_model": "gemini-3.6-flash",
         "temperature": 0.2,
+        "description": "Ingénieur logiciel senior expert en code et programmation.",
         "system_instruction": "Tu es Nova1.6-codex, un ingénieur logiciel senior expert en programmation."
     }
 }
 
-# ==============================================================================
-# 🔒 SÉCURITÉ : VÉRIFICATION DE LA CLÉ API CLIENT
-# ==============================================================================
-api_key_header = APIKeyHeader(name="Authorization", auto_error=True)
+# --- INITIALISATION DE LA SESSION ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-def verify_api_key(api_key: str = Depends(api_key_header)):
-    # Découpe le préfixe "Bearer " s'il est présent
-    token = api_key.replace("Bearer ", "").strip()
+if "credits" not in st.session_state:
+    st.session_state.credits = 140  # Crédits pour l'interface web
+
+# --- BARRE LATÉRALE (SIDEBAR) ---
+with st.sidebar:
+    st.title("⚙️ Paramètres NovAI")
     
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT username, api_credits FROM api_users WHERE api_key = ?", (token,))
-    user = cursor.fetchone()
-    conn.close()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Clé API NovAI invalide.")
+    # Choix du modèle pour le chat web
+    profil_choisi = st.selectbox("Choisir le modèle", list(PROFILS_IA.keys()))
+    info_modele = PROFILS_IA[profil_choisi]
+    st.caption(info_modele["description"])
     
-    username, api_credits = user
-    if api_credits <= 0:
-        raise HTTPException(status_code=402, detail="Crédits API épuisés. Veuillez recharger votre compte API.")
+    st.markdown("---")
+    st.metric("🪙 Vos crédits Web", f"{st.session_state.credits} / 140")
     
-    return {"key": token, "username": username, "api_credits": api_credits}
+    if st.button("Réinitialiser la conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
 
-# ==============================================================================
-# 📋 SCHÉMAS DE REQUÊTES
-# ==============================================================================
-class RegisterRequest(BaseModel):
-    username: str
-
-class ChatRequest(BaseModel):
-    model: str
-    prompt: str
-
-# ==============================================================================
-# 🚀 ENDPOINTS DE L'API
-# ==============================================================================
-
-# 1. Inscription et Génération automatique de Clé API
-@app.post("/v1/auth/register")
-def register_user(req: RegisterRequest):
-    new_key = f"novai_sk_{secrets.token_hex(16)}"
-    credits_initiaux_api = 100  # Crédits API donnés au départ
-
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO api_users (api_key, username, api_credits) VALUES (?, ?, ?)",
-            (new_key, req.username.strip(), credits_initiaux_api)
-        )
-        conn.commit()
-        conn.close()
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=400, detail="Ce nom d'utilisateur existe déjà pour l'API.")
-
-    return {
-        "status": "success",
-        "message": "Clé API générée avec succès.",
-        "username": req.username,
-        "api_key": new_key,
-        "api_credits": credits_initiaux_api
-    }
-
-# 2. Utilisation des Modèles via l'API (Consommation de Crédits API)
-@app.post("/v1/chat/completions")
-def chat(req: ChatRequest, user: dict = Depends(verify_api_key)):
-    if req.model not in PROFILS_IA:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Modèle inconnu. Modèles disponibles : {list(PROFILS_IA.keys())}"
-        )
+    # --- SECTION : CRÉATION AUTOMATIQUE DE CLÉ API ---
+    st.markdown("---")
+    st.markdown("### 🔑 Espace Développeur API")
+    st.write("Génère ta propre clé API NovAI pour utiliser nos modèles dans tes applications.")
     
-    profil = PROFILS_IA[req.model]
-    
-    try:
-        response = client.models.generate_content(
-            model=profil["gemini_model"],
-            contents=req.prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=profil["system_instruction"],
-                temperature=profil["temperature"]
-            )
-        )
-        
-        # Déduction d'un crédit API
-        nouveaux_credits_api = user["api_credits"] - 1
-        
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE api_users SET api_credits = ? WHERE api_key = ?", 
-            (nouveaux_credits_api, user["key"])
-        )
-        conn.commit()
-        conn.close()
-        
-        return {
-            "model_used": req.model,
-            "response": response.text,
-            "api_credits_remaining": nouveaux_credits_api
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur backend : {str(e)}")
+    with st.expander("Créer une clé API"):
+        pseudo_api = st.text_input("Nom d'utilisateur", placeholder="ex: devalex")
+        if st.button("Générer ma clé API", use_container_width=True):
+            if not pseudo_api.strip():
+                st.error("Entre un nom d'utilisateur valide.")
+            else:
+                try:
+                    # URL de ton API FastAPI (en local ou sur Render)
+                    # Si ton interface et ton API sont sur le même domaine Render, mets l'URL de ton app
+                    api_url = "https://pixai-app-o3pd.onrender.com/v1/auth/register"
+                    
+                    response = requests.post(api_url, json={"username": pseudo_api.strip()})
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        st.success("Clé créée avec succès !")
+                        st.code(data["api_key"], language="text")
+                        st.info(f"🎁 {data['api_credits']} crédits API offerts !")
+                    else:
+                        erreur_msg = response.json().get("detail", "Erreur inconnue")
+                        st.error(f"Erreur : {erreur_msg}")
+                except Exception as e:
+                    st.error(f"Impossible de joindre le serveur d'API : {e}")
 
-# 3. Solde de crédits de l'API
-@app.get("/v1/user/credits")
-def get_credits(user: dict = Depends(verify_api_key)):
-    return {
-        "username": user["username"], 
-        "api_credits_remaining": user["api_credits"]
-    }
+# --- INTERFACE PRINCIPALE DE CHAT ---
+st.title("✨ NovAI Studio")
+st.write(f"Mode actif : **{profil_choisi}**")
+
+# Affichage de l'historique des messages
+for message in st.session_state.messages:
+    avatar = "👤" if message["role"] == "user" else "🤖"
+    with st.chat_message(message["role"], avatar=avatar):
+        st.markdown(message["content"])
+
+# --- GESTION DE L'ENVOI DE MESSAGE ---
+if prompt := st.chat_input("Écris ton message ici..."):
+    if st.session_state.credits <= 0:
+        st.error("⚠️ Vous avez épuisé vos crédits web ! Rechargez ou revenez plus tard.")
+    else:
+        # Enregistrement et affichage du message utilisateur
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
+
+        # Génération de la réponse via Gemini
+        with st.chat_message("assistant", avatar="🤖"):
+            with st.spinner(f"L'IA ({profil_choisi}) réfléchit..."):
+                try:
+                    if not client:
+                        raise Exception("Client Gemini non initialisé. Vérifiez votre clé API Google.")
+                    
+                    response = client.models.generate_content(
+                        model=info_modele["gemini_model"],
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=info_modele["system_instruction"],
+                            temperature=info_modele["temperature"]
+                        )
+                    )
+                    reponse_texte = response.text
+                    
+                    # Affichage direct de la réponse
+                    st.markdown(reponse_texte)
+                    
+                    # Enregistrement dans l'historique
+                    st.session_state.messages.append({"role": "assistant", "content": reponse_texte})
+                    
+                    # Décompte des crédits web
+                    total_caracteres = len(prompt) + len(reponse_texte)
+                    credits_consommes = max(1, total_caracteres // 300)
+                    st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
+                    
+                    st.toast(f"📉 -{credits_consommes} crédit(s) web utilisé(s)", icon="🪙")
+                    
+                except Exception as e:
+                    st.error(f"Erreur de communication avec l'IA : {e}")
