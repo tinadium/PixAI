@@ -13,7 +13,7 @@ CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
 IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
 # Mot de passe global (laisse vide "" si tu ne veux pas de mot de passe)
-MOT_DE_PASSE_ACCES = "1234"
+MOT_DE_PASSE_ACCES = ""
 
 PROFILS_IA = {
     "💬Nova2.5-flash": {
@@ -231,7 +231,7 @@ with col_credit:
         st.markdown(f"<h2 style='text-align: right; margin: 0; padding-top: 5px;'><b>{st.session_state.credits}</b></h2>", unsafe_allow_html=True)
     with c_img:
         if os.path.exists(IMAGE_CREDIT_PATH):
-            st.image(IMAGE_CREDIT_PATH, width=45)
+            st.image(IMAGE_CREDIT_PATH, width=100)
         else:
             st.markdown("<h2 style='margin: 0;'>🪙</h2>", unsafe_allow_html=True)
 
