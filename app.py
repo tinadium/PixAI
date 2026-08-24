@@ -177,7 +177,7 @@ client = get_client()
 # --- SIDEBAR (Profil, Profil IA & Déconnexion) ---
 with st.sidebar:
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=140)
+        st.image("logo.jpg", width=200)
     
     st.markdown(f"**Connecté en tant que :**\n`{st.session_state.user_email}`")
     
@@ -216,7 +216,7 @@ if "current_profil" not in st.session_state or st.session_state.current_profil !
     )
 
 # --- ENTÊTE PRINCIPAL AVEC AFFICHAGE DES CRÉDITS ET IMAGE ---
-col_head, col_credit = st.columns([3, 1])
+col_head, col_credit = st.columns([2, 1])
 
 with col_head:
     st.markdown(f"""
@@ -224,6 +224,23 @@ with col_head:
             <span class="status-dot"></span> Mode actif : {profil_choisi}
         </div>
     """, unsafe_allow_html=True)
+
+with col_credit:
+    # Utilisation du HTML/CSS inline pour coller l'image juste à droite du texte
+    if os.path.exists(IMAGE_CREDIT_PATH):
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                <span style="font-size: 1.8rem; font-weight: bold; color: #ffffff;">{st.session_state.credits}</span>
+                <img src="{IMAGE_CREDIT_PATH}" style="width: 42px; height: 42px; object-fit: contain;">
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                <span style="font-size: 1.8rem; font-weight: bold; color: #ffffff;">{st.session_state.credits}</span>
+                <span style="font-size: 1.8rem;">🪙</span>
+            </div>
+        """, unsafe_allow_html=True)
 
 with col_credit:
     c1, c2 = st.columns([1, 2])
