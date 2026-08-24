@@ -2,7 +2,4 @@ google-genai
 gradio
 streamlit
 streamlit[auth]
-fastapi
-uvicorn
-google-genai
-pydantic
+
