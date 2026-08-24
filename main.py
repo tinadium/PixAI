@@ -1,5 +1,6 @@
 import os
-import requests
+import sqlite3
+import secrets
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -11,8 +12,25 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- CONFIGURATION DE L'API CLÉ (Google Gemini pour l'interface web) ---
-# Tu peux récupérer ta clé depuis les secrets Streamlit ou une variable d'environnement
+# --- CONFIGURATION DE LA BASE DE DONNÉES DES CLÉS API ---
+DB_FILE = "novai_keys.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS api_users (
+            api_key TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            api_credits INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- CONFIGURATION DE L'API GEMINI ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "TA_CLE_GOOGLE_GEMINI")
 
 try:
@@ -36,7 +54,7 @@ PROFILS_IA = {
     }
 }
 
-# --- INITIALISATION DE LA SESSION ---
+# --- INITIALISATION DE LA SESSION WEB ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -59,34 +77,37 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-    # --- SECTION : CRÉATION AUTOMATIQUE DE CLÉ API ---
+    # --- SECTION : CRÉATION DE CLÉ API DIRECTE ---
     st.markdown("---")
     st.markdown("### 🔑 Espace Développeur API")
-    st.write("Génère ta propre clé API NovAI pour utiliser nos modèles dans tes applications.")
+    st.write("Génère ta propre clé API NovAI directement ici.")
     
     with st.expander("Créer une clé API"):
-        pseudo_api = st.text_input("Nom d'utilisateur", placeholder="ex: devalex")
+        pseudo_api = st.text_input("Nom d'utilisateur", placeholder="ex: devalex", key="input_pseudo_api")
         if st.button("Générer ma clé API", use_container_width=True):
             if not pseudo_api.strip():
                 st.error("Entre un nom d'utilisateur valide.")
             else:
+                new_key = f"novai_sk_{secrets.token_hex(16)}"
+                credits_initiaux = 100
+                
                 try:
-                    # URL de ton API FastAPI (en local ou sur Render)
-                    # Si ton interface et ton API sont sur le même domaine Render, mets l'URL de ton app
-                    api_url = "https://pixai-app-o3pd.onrender.com/v1/auth/register"
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO api_users (api_key, username, api_credits) VALUES (?, ?, ?)",
+                        (new_key, pseudo_api.strip(), credits_initiaux)
+                    )
+                    conn.commit()
+                    conn.close()
                     
-                    response = requests.post(api_url, json={"username": pseudo_api.strip()})
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        st.success("Clé créée avec succès !")
-                        st.code(data["api_key"], language="text")
-                        st.info(f"🎁 {data['api_credits']} crédits API offerts !")
-                    else:
-                        erreur_msg = response.json().get("detail", "Erreur inconnue")
-                        st.error(f"Erreur : {erreur_msg}")
+                    st.success("Clé créée avec succès !")
+                    st.code(new_key, language="text")
+                    st.info(f"🎁 {credits_initiaux} crédits API associés !")
+                except sqlite3.IntegrityError:
+                    st.error("Ce nom d'utilisateur est déjà pris. Choisis-en un autre.")
                 except Exception as e:
-                    st.error(f"Impossible de joindre le serveur d'API : {e}")
+                    st.error(f"Erreur lors de la création : {e}")
 
 # --- INTERFACE PRINCIPALE DE CHAT ---
 st.title("✨ NovAI Studio")
