@@ -339,40 +339,35 @@ if prompt := st.chat_input("Écris ton message ici..."):
         " compte."
     )
   else:
-    # 1. Enregistrement et affichage immédiat du message utilisateur
+    # 1. Enregistrement et affichage immédiat de la question
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
       st.markdown(prompt)
 
-    # 2. Génération de la réponse
+    # 2. Génération et affichage direct de la réponse
     with st.chat_message("assistant", avatar="🤖"):
       with st.spinner(f"L'IA ({profil_choisi}) rédige une réponse..."):
         try:
           response = st.session_state.chat.send_message(prompt)
           reponse_texte = response.text
 
-          # Affichage direct de la réponse
           st.markdown(reponse_texte)
-
-          # Enregistrement dans l'historique
           st.session_state.messages.append(
               {"role": "assistant", "content": reponse_texte}
           )
 
-          # Décompte des crédits
+          # Décompte et mise à jour
           total_caracteres = len(prompt) + len(reponse_texte)
           credits_consommes = max(1, total_caracteres // 300)
 
-          # Mise à jour dans session_state ET sauvegarde dans le fichier JSON
           nouveau_solde = max(0, st.session_state.credits - credits_consommes)
           st.session_state.credits = nouveau_solde
           update_user_credits(user_email, nouveau_solde)
 
-          st.toast(
-              f"📉 -{credits_consommes} crédit(s) utilisé(s)"
-              f" ({total_caracteres} caractères)",
-              icon="🪙",
-          )
+          st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s)", icon="🪙")
+
+        except Exception as e:
+          st.error(f"Erreur de communication avec l'IA : {e}")
 
         except Exception as e:
           st.error(f"Erreur de communication avec l'IA : {e}")
