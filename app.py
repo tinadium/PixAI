@@ -127,7 +127,7 @@ CUSTOM_CSS = """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # --- VÉRIFICATION /GESTION DE L'AUTHENTIFICATION GOOGLE ---
-if not st.user.is_logged_in:
+if not st.user or not getattr(st.user, "email", None):
     st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Connectez-vous avec votre compte Google pour accéder à l\'assistant et recevoir vos crédits quotidiens.</div>', unsafe_allow_html=True)
     
@@ -265,5 +265,5 @@ if prompt := st.chat_input("Écris ton message ici..."):
                 except Exception as e:
                     st.error(f"Une erreur s'est produite : {e}")
         
-        # 3. Rafraîchissement pour mettre à jour l'affichage en haut à droite
+        # 3. Rafraîchissement pour mettre à jour l'affichage
         st.rerun()
