@@ -7,7 +7,7 @@ from google.genai import types
 # ⚙️ CONFIGURATION DU SCRIPT ET DES PROFILS D'IA
 # ==============================================================================
 API_KEY = "TA_CLE_API_ICI"  # Colle ta clé Gemini entre les guillemets
-MODEL_NAME = "gemini-3.6-flash"
+MODEL_NAME = "gemini-2.5-flash"
 
 # Dictionnaire des profils d'IA avec leurs consignes et paramètres dédiés :
 PROFILS_IA = {
@@ -31,8 +31,7 @@ PROFILS_IA = {
         3. Identifie les pièges potentiels, bugs ou problèmes de performance.
         4. Priorise les meilleures pratiques de développement.
         """
-  
-  
+    }
 }
 # ==============================================================================
 
@@ -191,6 +190,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- AFFICHAGE DU CHAT ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
 for message in st.session_state.messages:
     avatar = "👤" if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar=avatar):
