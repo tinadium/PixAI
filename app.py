@@ -12,7 +12,7 @@ MODEL_NAME = "gemini-2.5-flash"
 CREDITS_QUOTIDIENS = 140     # Nombre de crédits donnés chaque jour
 IMAGE_CREDIT_PATH = "credit.png"  # Chemin vers ton image de crédit
 
-# Mot de passe global simple pour protéger l'accès (laisse vide "" si tu veux accès libre)
+# Mot de passe global (laisse vide "" si tu ne veux pas de mot de passe)
 MOT_DE_PASSE_ACCES = "1234"
 
 PROFILS_IA = {
@@ -135,11 +135,11 @@ if "user_email" not in st.session_state:
 
 if not st.session_state.user_email:
     st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Entrez un identifiant ou votre email pour accéder à l\'assistant et vos crédits quotidiens.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Entrez un identifiant pour accéder à l\'assistant et vos crédits quotidiens.</div>', unsafe_allow_html=True)
     
     with st.form("login_form"):
         email_input = st.text_input("Votre Email / Pseudo", placeholder="ex: alex@gmail.com")
-        pwd_input = st.text_input("Mot de passe (optionnel)", type="password") if MOT_DE_PASSE_ACCES else None
+        pwd_input = st.text_input("Mot de passe", type="password") if MOT_DE_PASSE_ACCES else None
         submit = st.form_submit_button("🚀 Entrer", use_container_width=True)
         
         if submit:
@@ -177,7 +177,7 @@ client = get_client()
 # --- SIDEBAR (Profil, Profil IA & Déconnexion) ---
 with st.sidebar:
     if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=200)
+        st.image("logo.jpg", width=140)
     
     st.markdown(f"**Connecté en tant que :**\n`{st.session_state.user_email}`")
     
@@ -216,7 +216,7 @@ if "current_profil" not in st.session_state or st.session_state.current_profil !
     )
 
 # --- ENTÊTE PRINCIPAL AVEC AFFICHAGE DES CRÉDITS ET IMAGE ---
-col_head, col_credit = st.columns([2, 1])
+col_head, col_credit = st.columns([3, 1])
 
 with col_head:
     st.markdown(f"""
@@ -226,31 +226,14 @@ with col_head:
     """, unsafe_allow_html=True)
 
 with col_credit:
-    # Utilisation du HTML/CSS inline pour coller l'image juste à droite du texte
-    if os.path.exists(IMAGE_CREDIT_PATH):
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                <span style="font-size: 1.8rem; font-weight: bold; color: #ffffff;">{st.session_state.credits}</span>
-                <img src="{IMAGE_CREDIT_PATH}" style="width: 42px; height: 42px; object-fit: contain;">
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                <span style="font-size: 1.8rem; font-weight: bold; color: #ffffff;">{st.session_state.credits}</span>
-                <span style="font-size: 1.8rem;">🪙</span>
-            </div>
-        """, unsafe_allow_html=True)
-
-with col_credit:
-    c1, c2 = st.columns([1, 2])
-    with c1:
+    c_num, c_img = st.columns([1, 1])
+    with c_num:
+        st.markdown(f"<h2 style='text-align: right; margin: 0; padding-top: 5px;'><b>{st.session_state.credits}</b></h2>", unsafe_allow_html=True)
+    with c_img:
         if os.path.exists(IMAGE_CREDIT_PATH):
-            st.image(IMAGE_CREDIT_PATH, width=32)
+            st.image(IMAGE_CREDIT_PATH, width=45)
         else:
-            st.write("🪙")
-    with c2:
-        st.markdown(f"### **{st.session_state.credits}**")
+            st.markdown("<h2 style='margin: 0;'>🪙</h2>", unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">Assistant IA Personnel</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Propulsé par Google Gemini • Pose tes questions ci-dessous</div>', unsafe_allow_html=True)
