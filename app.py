@@ -231,7 +231,7 @@ with col_credit:
         st.markdown(f"<h2 style='text-align: right; margin: 0; padding-top: 5px;'><b>{st.session_state.credits}</b></h2>", unsafe_allow_html=True)
     with c_img:
         if os.path.exists(IMAGE_CREDIT_PATH):
-            st.image(IMAGE_CREDIT_PATH, width=100)
+            st.image(IMAGE_CREDIT_PATH, width=120)
         else:
             st.markdown("<h2 style='margin: 0;'>🪙</h2>", unsafe_allow_html=True)
 
@@ -250,7 +250,7 @@ for message in st.session_state.messages:
 # --- ENVOI DE MESSAGE ---
 if prompt := st.chat_input("Écris ton message ici..."):
     if st.session_state.credits <= 0:
-        st.error("⚠️ Vous avez épuisé vos crédits ! Revenez demain ou rechargez votre compte.")
+        st.error("⚠️Error 505 limite atteinte")
     else:
         # 1. Enregistrement et affichage immédiat du message utilisateur
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -272,7 +272,7 @@ if prompt := st.chat_input("Écris ton message ici..."):
                     
                     # Décompte des crédits
                     total_caracteres = len(prompt) + len(reponse_texte)
-                    credits_consommes = max(1, total_caracteres // 300)
+                    credits_consommes = max(1, total_caracteres // 150)
                     st.session_state.credits = max(0, st.session_state.credits - credits_consommes)
                     
                     st.toast(f"📉 -{credits_consommes} crédit(s) utilisé(s)", icon="🪙")
