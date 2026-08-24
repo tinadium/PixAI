@@ -9,7 +9,7 @@ from google.genai import types
 # ==============================================================================
 # Mets ta vraie clé ici OU ajoute GEMINI_API_KEY dans les variables d'environnement sur Render
 API_KEY = "TA_CLE_API_ICI"  
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3.6-flash"
 CREDITS_QUOTIDIENS = 140
 IMAGE_CREDIT_PATH = "credit.png"
 
