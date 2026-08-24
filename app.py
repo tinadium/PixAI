@@ -127,7 +127,7 @@ CUSTOM_CSS = """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # --- VÉRIFICATION /GESTION DE L'AUTHENTIFICATION GOOGLE ---
-if not st.experimental_user.is_logged_in:
+if not st.user.is_logged_in:
     st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Connectez-vous avec votre compte Google pour accéder à l\'assistant et recevoir vos crédits quotidiens.</div>', unsafe_allow_html=True)
     
@@ -162,7 +162,7 @@ with st.sidebar:
     if os.path.exists("logo.jpg"):
         st.image("logo.jpg", width=140)
     
-    st.markdown(f"**Connecté en tant que :**\n`{st.experimental_user.email}`")
+    st.markdown(f"**Connecté en tant que :**\n`{st.user.email}`")
     
     st.markdown("---")
     st.markdown("### 🎯 Modèle IA")
@@ -253,7 +253,7 @@ if prompt := st.chat_input("Écris ton message ici..."):
                     # ==========================================================
                     total_caracteres = len(prompt) + len(reponse_texte)
                     
-                    # Règle : 1 crédit par tranche de 500 caractères (minimum 1)
+                    # Règle : 1 crédit par tranche de 300 caractères (minimum 1)
                     credits_consommes = max(1, total_caracteres // 300)
                     
                     # Déduction des crédits
@@ -266,5 +266,4 @@ if prompt := st.chat_input("Écris ton message ici..."):
                     st.error(f"Une erreur s'est produite : {e}")
         
         # 3. Rafraîchissement pour mettre à jour l'affichage en haut à droite
-        st.rerun()
         st.rerun()
