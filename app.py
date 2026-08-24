@@ -49,27 +49,24 @@ CUSTOM_CSS = """
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-# --- GESTION UTILISATEUR ET CRÉDITS ---
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
+# --- GESTION DES CRÉDITS DANS L'URL (PERSISTANT AU REFRESH) ---
+query_params = st.query_params
 
-if not st.session_state.user_email:
-    st.markdown('<div class="main-title">Bienvenue sur NovAI</div>', unsafe_allow_html=True)
-    with st.form("login_form"):
-        email_input = st.text_input("Votre Email / Pseudo", placeholder="ex: alex@gmail.com")
-        submit = st.form_submit_button("🚀 Entrer", use_container_width=True)
-        if submit and email_input.strip():
-            st.session_state.user_email = email_input.strip()
-            st.rerun()
-    st.stop()
-
-if "credits" not in st.session_state:
-    st.session_state.credits = CREDITS_QUOTIDIENS
+# Si les crédits existent déjà dans l'URL, on les récupère
+if "credits" in query_params:
+  st.session_state.credits = int(query_params["credits"])
+elif "credits" not in st.session_state:
+  st.session_state.credits = CREDITS_QUOTIDIENS
+  st.query_params["credits"] = str(CREDITS_QUOTIDIENS)
 
 today_str = datetime.date.today().isoformat()
-if "last_login_date" not in st.session_state or st.session_state.last_login_date != today_str:
-    st.session_state.last_login_date = today_str
-    st.session_state.credits = CREDITS_QUOTIDIENS
+if (
+    "last_login_date" not in st.session_state
+    or st.session_state.last_login_date != today_str
+):
+  st.session_state.last_login_date = today_str
+  st.session_state.credits = CREDITS_QUOTIDIENS
+  st.query_params["credits"] = str(CREDITS_QUOTIDIENS)
 
 # --- CLIENT GEMINI ---
 @st.cache_resource
