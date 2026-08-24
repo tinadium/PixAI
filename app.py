@@ -11,55 +11,34 @@ MODEL_NAME = "gemini-3.6-flash"
 
 # Dictionnaire des profils d'IA avec leurs consignes et paramètres dédiés :
 PROFILS_IA = {
-    "💬 Assistant Discussion": {
+    "💬Nova2.5-flash": {
         "description": "Conversation naturelle, polyvalente et amicale.",
-        "temperature": 0.7,
+        "temperature": 0.8,
         "system_instruction": """
-        Tu es un assistant virtuel amical, cultivé et très polyvalent.
+        Tu es "Nova2.5-flash" amical, cultivé et très polyvalent.
         Tu réponds de manière fluide, naturelle et chaleureuse.
         Adaptes-toi à toutes les demandes avec clarté et concision.
         """
     },
-    "💻 Expert Code & Dev": {
+    "💻Nova1.6-codex": {
         "description": "Optimisé pour la programmation, la revue de code et le debug.",
         "temperature": 0.2, # Température basse pour plus de précision technique
         "system_instruction": """
-        Tu es un ingénieur logiciel senior et expert en programmation multi-langages.
+        Tu es un "Nova1.6-codex" un ingénieur logiciel senior et expert en programmation multi-langages.
         Règles :
         1. Fournis du code propre, moderne, sécurisé et parfaitement commenté.
         2. Explique brièvement la logique avant ou après les blocs de code.
         3. Identifie les pièges potentiels, bugs ou problèmes de performance.
         4. Priorise les meilleures pratiques de développement.
         """
-    },
-    "✍️ Rédacteur & Correcteur": {
-        "description": "Rédaction d'articles, relecture, style et synthèse.",
-        "temperature": 0.8,
-        "system_instruction": """
-        Tu es un rédacteur professionnel et expert en communication écrite.
-        Règles :
-        1. Adopte un style irréprochable, élégant et sans faute d'orthographe.
-        2. Aide à structurer les idées (titres, paragraphes, accroches).
-        3. Propose des reformulations ou des corrections de textes si demandé.
-        """
-    },
-    "🧠 Professeur & Pédagogue": {
-        "description": "Explications simples de concepts complexes avec des exemples.",
-        "temperature": 0.5,
-        "system_instruction": """
-        Tu es un professeur bienveillant et très pédagogue.
-        Règles :
-        1. Explique les concepts étape par étape, en utilisant des analogies simples.
-        2. Évite le jargon inutile ou explique-le clairement.
-        3. Termine souvent par un petit exemple concret ou une question de vérification.
-        """
-    }
+  
+  
 }
 # ==============================================================================
 
 # Page Configuration Streamlit
 st.set_page_config(
-    page_title="Assistant IA - Multiprofils",
+    page_title="PixAI-App",
     page_icon="✨",
     layout="centered",
     initial_sidebar_state="expanded"
@@ -170,11 +149,11 @@ client = get_client()
 # --- SIDEBAR (Choix du Profil & Actions) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg", width=140)
-    st.markdown("### 🎯 Mode de l'IA")
+    st.markdown("### 🎯 ModeelIA")
     
     # Sélecteur de profil
     profil_choisi = st.selectbox(
-        "Choisis le rôle de l'IA :",
+        "Choisis le modèle:",
         options=list(PROFILS_IA.keys()),
         index=0
     )
