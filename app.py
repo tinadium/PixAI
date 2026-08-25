@@ -17,7 +17,7 @@ PROFILS_IA = {
         "description": "Conversation naturelle, polyvalente et amicale.",
         "temperature": 0.8,
         "system_instruction": (
-            "Tu es Nova, un assistant amical et polyvalent. Réponds de manière"
+            "Tu es Nova2.5-flash, un assistant amical et polyvalent. Réponds de manière"
             " claire et fluide."
         ),
     },
@@ -25,8 +25,15 @@ PROFILS_IA = {
         "description": "Optimisé pour la programmation et le debug.",
         "temperature": 0.2,
         "system_instruction": (
-            "Tu es Nova-Codex, un expert en programmation. Fournis du code"
+            "Tu es Nova1.6-Codex, un expert en programmation. Fournis du code"
             " propre et expliqué."
+        ),
+    },
+    "Nova2.2-Pro-flash": {
+        "description": "Conversation naturelle, polyvalente et amicale.",
+        "temperature": 0.8,
+        "system_instruction": (
+            "Tu es Nova2.2-Pro-flash, un assistant amica premium.Repond avec beaucoup de texte et emojis tu es bienveillant tu evite de parler de chose dangereux pour l'uttilisateur ou illégal" 
         ),
     },
 }
