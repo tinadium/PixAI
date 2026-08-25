@@ -17,8 +17,8 @@ PROFILS_IA = {
         "description": "Conversation naturelle, polyvalente et amicale.",
         "temperature": 0.8,
         "system_instruction": (
-            "Tu es Nova2.5-flash, un assistant amical et polyvalent. Réponds de manière"
-            " claire et fluide."
+            "Tu es Nova2.5-flash, un assistant amical et polyvalent. Réponds"
+            " de manière claire et fluide."
         ),
     },
     "💻Nova1.6-codex": {
@@ -33,7 +33,9 @@ PROFILS_IA = {
         "description": "Conversation naturelle, polyvalente et amicale.",
         "temperature": 0.8,
         "system_instruction": (
-            "Tu es Nova2.2-Pro-flash, un assistant amica premium.Repond avec beaucoup de texte et emojis tu es bienveillant tu evite de parler de chose dangereux pour l'uttilisateur ou illégal" 
+            "Tu es Nova2.2-Pro-flash, un assistant amica premium.Repond avec"
+            " beaucoup de texte et emojis tu es bienveillant tu evite de parler"
+            " de chose dangereux pour l'uttilisateur ou illégal"
         ),
     },
 }
@@ -205,10 +207,20 @@ if prompt := st.chat_input("Écris ton message ici..."):
               {"role": "assistant", "content": reponse_texte}
           )
 
-          # Maintien du solde
-          nouveau_solde = max(0, st.session_state.credits - 1)
+          # --- CALCUL DE LA CONSOMMATION DES CRÉDITS ---
+          # Exemple : 1 crédit de base + 1 crédit bonus tous les 100 caractères de réponse
+          longueur_reponse = len(reponse_texte)
+          credits_consommes = 1 + (longueur_reponse // 100)
+
+          nouveau_solde = max(0, st.session_state.credits - credits_consommes)
           st.session_state.credits = nouveau_solde
           st.query_params["c"] = str(nouveau_solde)
+
+          # Notification de la consommation
+          st.caption(
+              f"🔻 {credits_consommes} crédit(s) consommé(s) ({longueur_reponse}"
+              " caractères)."
+          )
 
           # Enregistrement dans la mémoire du navigateur
           components.html(
